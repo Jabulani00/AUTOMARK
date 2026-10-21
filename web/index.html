@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoMark</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#818cf8;
+    --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;
+         background:linear-gradient(90deg,#0b1220,#1e293b);border-bottom:1px solid var(--line)}
+  header h1{font-size:19px;margin:0;letter-spacing:.3px}
+  header .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);
+              padding:2px 8px;border-radius:999px}
+  .spacer{flex:1}
+  .userbox{display:flex;align-items:center;gap:10px;font-size:13px}
+  .userbox .who b{color:var(--text)} .userbox .role{color:var(--muted)}
+  .nav button{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+      padding:7px 14px;border-radius:999px;cursor:pointer;font-size:13px;margin-left:6px}
+  .nav button.active{background:var(--accent);color:#07293a;border-color:var(--accent);font-weight:600}
+  main{max-width:1080px;margin:22px auto;padding:0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+        padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 12px;font-size:16px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select,textarea{width:100%;background:var(--panel2);color:var(--text);
+      border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px}
+  textarea{font-family:ui-monospace,Consolas,monospace;min-height:220px;white-space:pre}
+  button.primary{background:var(--accent);color:#07293a;border:none;border-radius:8px;
+      padding:10px 18px;font-weight:600;cursor:pointer;font-size:14px;margin-top:12px}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line);
+      border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+  button.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .brief{background:var(--panel2);border-radius:8px;padding:12px;color:var(--muted);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill.met,.pill.graded,.pill.passed{background:rgba(34,197,94,.15);color:#86efac}
+  .pill.partial,.pill.running,.pill.pending{background:rgba(245,158,11,.15);color:#fcd34d}
+  .pill.not_met,.pill.failed,.pill.fail{background:rgba(239,68,68,.15);color:#fca5a5}
+  .markbig{font-size:46px;font-weight:700;line-height:1}
+  .markbig small{font-size:16px;color:var(--muted);font-weight:400}
+  .scorebar{height:8px;background:var(--panel2);border-radius:999px;overflow:hidden;margin-top:4px}
+  .scorebar>div{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .muted{color:var(--muted)}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .hidden{display:none}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+  .err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fca5a5;
+       padding:9px 12px;border-radius:8px;margin-top:10px;font-size:13px}
+  pre.code{background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:10px;
+      overflow:auto;font-size:12px;max-height:200px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .reqline{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line)}
+  .reqline .lines{font-size:11px;color:var(--muted)}
+  /* auth */
+  .authwrap{max-width:420px;margin:60px auto}
+  .authtabs{display:flex;gap:8px;margin-bottom:14px}
+  .authtabs button{flex:1}
+  /* analytics */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .kpi .n{font-size:28px;font-weight:700} .kpi .l{font-size:12px;color:var(--muted)}
+  .bars{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .barrow{display:grid;grid-template-columns:120px 1fr 34px;align-items:center;gap:8px;font-size:12px}
+  .barrow .track{background:var(--panel2);border-radius:999px;height:14px;overflow:hidden}
+  .barrow .fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .barrow .fill.bad{background:linear-gradient(90deg,#ef4444,#f59e0b)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ AutoMark</h1>
+  <span class="tag" id="envtag">loading…</span>
+  <div class="spacer"></div>
+  <div class="nav hidden" id="teacherNav">
+    <button id="navWork" class="active" onclick="showTeacherTab('work')">Assignments &amp; Marks</button>
+    <button id="navAnalytics" onclick="showTeacherTab('analytics')">Analytics</button>
+  </div>
+  <div class="userbox hidden" id="userbox">
+    <span class="who"><b id="uName"></b> <span class="role" id="uRole"></span></span>
+    <button class="ghost sm" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+
+<!-- ============ AUTH ============ -->
+<section id="authView">
+  <div class="authwrap card">
+    <div class="authtabs">
+      <button id="tabLogin" class="ghost active" onclick="setAuthTab('login')">Sign in</button>
+      <button id="tabSignup" class="ghost" onclick="setAuthTab('signup')">Create student account</button>
+    </div>
+    <div id="signupName" class="hidden">
+      <label>Display name</label>
+      <input id="auName" placeholder="e.g. Alex Student" />
+    </div>
+    <label>Email</label>
+    <input id="auEmail" type="email" placeholder="you@example.com" />
+    <label>Password</label>
+    <input id="auPass" type="password" placeholder="at least 6 characters" />
+    <button class="primary" id="authBtn" onclick="doAuth()" style="width:100%">Sign in</button>
+    <div id="authErr"></div>
+    <div class="note" id="demoHint"></div>
+  </div>
+</section>
+
+<!-- ============ STUDENT ============ -->
+<section id="studentView" class="hidden">
+  <div class="grid">
+    <div class="card">
+      <h2>1 · Pick an assignment</h2>
+      <label>Assignment</label>
+      <select id="stuAssignment" onchange="loadBrief()"></select>
+      <label>The brief</label>
+      <div class="brief" id="stuBrief">—</div>
+    </div>
+    <div class="card">
+      <h2>2 · Upload or write your program</h2>
+      <div class="row">
+        <input type="file" id="stuFile" accept=".py,.java,.txt" onchange="loadFile()" style="flex:1" />
+        <button class="ghost sm" onclick="clearCode()">Clear</button>
+      </div>
+      <label>Code</label>
+      <textarea id="stuCode" placeholder="Paste your program here, or upload a file above…"></textarea>
+      <button class="primary" id="submitBtn" onclick="submitCode()">Submit for marking →</button>
+      <div id="submitErr"></div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="resultCard">
+    <h2>Result <span class="pill" id="resStatus"></span></h2>
+    <div class="grid">
+      <div>
+        <div class="markbig"><span id="resMark">0</span><small> / 100</small></div>
+        <div id="resOverride" class="note"></div>
+        <div style="margin-top:14px">
+          <div class="muted">Tests <span id="wTests"></span></div>
+          <div class="scorebar"><div id="barTests"></div></div>
+          <div class="muted" style="margin-top:8px">Rubric <span id="wRubric"></span></div>
+          <div class="scorebar"><div id="barRubric"></div></div>
+          <div class="muted" style="margin-top:8px">Style <span id="wStyle"></span></div>
+          <div class="scorebar"><div id="barStyle"></div></div>
+        </div>
+        <label style="margin-top:14px">Feedback</label>
+        <div class="brief" id="resFeedback"></div>
+      </div>
+      <div>
+        <label>Test breakdown</label>
+        <table><tbody id="resTests"></tbody></table>
+        <div id="compileBox"></div>
+        <label style="margin-top:12px">Requirement verdicts</label>
+        <div id="resReqs"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>My submissions</h2>
+    <table>
+      <thead><tr><th>Assignment</th><th>Status</th><th>Attempt</th><th>Mark</th><th>When</th></tr></thead>
+      <tbody id="mySubs"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ TEACHER: work ============ -->
+<section id="teacherView" class="hidden">
+ <div id="teacherWork">
+  <div class="card">
+    <div class="toolbar">
+      <button class="ghost" onclick="newAssignment()">+ New assignment</button>
+      <select id="tchAssignment" onchange="loadAssignment()" style="flex:1;min-width:220px"></select>
+      <button class="ghost sm" onclick="autodraft()">Auto-draft rubric &amp; tests</button>
+      <button class="ghost sm" onclick="publish()">Publish</button>
+      <button class="ghost sm" onclick="exportCsv()">Export CSV</button>
+    </div>
+    <div id="tchErr"></div>
+    <div class="grid">
+      <div>
+        <label>Title</label><input id="tchTitle" />
+        <label>Language</label>
+        <select id="tchLang"><option value="python">Python 3</option><option value="java">Java (needs JDK)</option></select>
+        <label>Brief</label>
+        <textarea id="tchBrief" style="min-height:120px;white-space:pre-wrap;font-family:inherit"></textarea>
+      </div>
+      <div>
+        <label>Weights (must total 100)</label>
+        <div class="row">
+          <div style="flex:1"><span class="muted">Tests</span><input id="wgTests" type="number" value="60"></div>
+          <div style="flex:1"><span class="muted">Rubric</span><input id="wgRubric" type="number" value="25"></div>
+          <div style="flex:1"><span class="muted">Style</span><input id="wgStyle" type="number" value="15"></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary" onclick="saveAssignment()">Save assignment</button>
+          <span class="pill" id="tchStatus"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Rubric <span class="muted" id="rubricTotal"></span></h2>
+    <table>
+      <thead><tr><th style="width:60px">ID</th><th>Requirement</th><th style="width:70px">Marks</th>
+      <th>Patterns</th><th>Tests that prove it</th><th style="width:36px"></th></tr></thead>
+      <tbody id="rubricBody"></tbody>
+    </table>
+    <button class="ghost sm" onclick="addRubric()" style="margin-top:10px">+ Add requirement</button>
+    <div class="note">List the test IDs that prove a requirement in “Tests that prove it” — the verdict then comes from whether those tests pass, so wrong-for-the-task code is caught.</div>
+  </div>
+
+  <div class="card">
+    <h2>Test cases <span class="muted">(input / expected output)</span></h2>
+    <table>
+      <thead><tr><th style="width:52px">ID</th><th>Name</th><th>stdin</th><th>Expected stdout</th><th style="width:56px">Marks</th>
+      <th style="width:84px">Approved</th><th style="width:36px"></th></tr></thead>
+      <tbody id="testBody"></tbody>
+    </table>
+    <button class="ghost sm" onclick="addTest()" style="margin-top:10px">+ Add test</button>
+    <div class="note">Publish needs ≥1 test, every test approved, and rubric totalling 100 (FR-10).</div>
+  </div>
+
+  <div class="card">
+    <h2>Class marks</h2>
+    <table>
+      <thead><tr><th>Student</th><th>Status</th><th>Attempts</th><th>Mark</th><th>Actions</th></tr></thead>
+      <tbody id="marksBody"></tbody>
+    </table>
+  </div>
+ </div>
+
+ <!-- ============ TEACHER: analytics ============ -->
+ <div id="analyticsView" class="hidden">
+  <div class="card">
+    <h2>Analytics — overview</h2>
+    <div class="kpis" id="kpis"></div>
+  </div>
+  <div id="analyticsCards"></div>
+ </div>
+</section>
+
+</main>
+<script src="/web/app.js"></script>
+</body>
+</html>

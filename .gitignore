@@ -1,0 +1,27 @@
+# --- secrets (never commit) ---
+.env
+*.env
+!.env.example
+AUTOMARK ENV SETUP AND SUPABSE DB.txt
+*SUPABSE*.txt
+*SUPABASE*.txt
+
+# --- local data & runtime ---
+data/
+contracts_cache/
+
+# --- bundled JDK (large, machine-specific) ---
+jdk/
+
+# --- python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
