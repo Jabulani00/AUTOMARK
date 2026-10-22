@@ -7,6 +7,7 @@ synchronously on submit for the prototype; the real system uses a polling
 worker (FR-17..FR-21). No external packages are required.
 """
 
+import base64
 import csv
 import io
 import json
@@ -14,6 +15,7 @@ import os
 import sys
 import threading
 import webbrowser
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -53,6 +55,31 @@ def _make_store():
 
 store = _make_store()
 _grade_lock = threading.Lock()
+
+
+def extract_zip_sources(zip_b64, language):
+    """Turn an uploaded .zip of source files into the '// FILE: name' multi-file
+    format the grader understands. Returns None on an invalid/empty zip."""
+    try:
+        raw = base64.b64decode(zip_b64)
+    except Exception:
+        return None
+    if len(raw) > 256 * 1024:
+        return None
+    ext = ".java" if language == "java" else ".py"
+    marker = "//" if language == "java" else "#"
+    parts = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            for info in zf.infolist():
+                name = os.path.basename(info.filename)
+                if info.is_dir() or not name.endswith(ext) or info.file_size > 100 * 1024:
+                    continue
+                content = zf.read(info).decode("utf-8", "replace")
+                parts.append("%s FILE: %s\n%s" % (marker, name, content))
+    except zipfile.BadZipFile:
+        return None
+    return "\n".join(parts) if parts else None
 
 
 def grade_submission(sub):
@@ -181,6 +208,9 @@ class Handler(BaseHTTPRequestHandler):
                 "python": sys.version.split()[0],
                 "db": DB_BACKEND,
                 "llm": config.llm_config()["provider"] or "heuristic",
+                "sandbox": "docker" if marker.sandbox_enabled()
+                else ("docker-requested" if config.get("AUTOMARK_SANDBOX", "none").lower() == "docker"
+                      else "subprocess"),
             })
         if p == "/api/auth/me":
             u = self._current_user()
@@ -233,6 +263,7 @@ class Handler(BaseHTTPRequestHandler):
             "overridden": bool(s.get("override")),
             "original_mark": (s["result"]["scores"]["final_mark"]
                               if s.get("result") else None),
+            "flagged": bool((s.get("result") or {}).get("flags")),
         }
 
     # ---- POST / PUT / DELETE ----
@@ -290,8 +321,7 @@ class Handler(BaseHTTPRequestHandler):
                 store.update_submission(s)
                 return self._send_json(self._sub_summary(s))
             if action == "regrade":
-                grade_submission(s)
-                return self._send_json(store.get_submission(sid))
+                return self._send_json(grade_submission(s))
 
         return self._send_json({"error": "unknown endpoint"}, 404)
 
@@ -362,14 +392,21 @@ class Handler(BaseHTTPRequestHandler):
         a = store.get_assignment(aid)
         if not a or a.get("status") != "published":
             return self._send_json({"error": "Assignment not found or not published."}, 400)
+        # .zip multi-file upload: extract source files into the // FILE: format
+        if body.get("zip_b64"):
+            code = extract_zip_sources(body["zip_b64"], a.get("language", "python"))
+            if not code:
+                return self._send_json(
+                    {"error": "Zip had no %s source files (or was invalid)."
+                     % a.get("language", "python")}, 400)
         # FR-12/FR-13: validate size and non-empty before storing
         if not code.strip():
             return self._send_json({"error": "Empty submission rejected."}, 400)
         if len(code.encode("utf-8")) > 100 * 1024:
             return self._send_json({"error": "File too large (max 100 KB)."}, 400)
         sub = store.create_submission(aid, student, filename, code)
-        grade_submission(sub)
-        return self._send_json(store.get_submission(sub["id"]), 201)
+        graded = grade_submission(sub)  # returns the persisted, graded row
+        return self._send_json(graded, 201)
 
     def _handle_publish(self, a):
         # FR-10: publish only if every test is approved and there is >= 1 test

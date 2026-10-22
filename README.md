@@ -165,6 +165,34 @@ The prompt-injection attempt scores exactly like the honest-wrong version
 semantic verdicts when configured; see *LLM setup*. The mark is always computed
 in code — the AI never emits the mark (FR-37).
 
+### Anti-gaming, fairness & richer checks (hardened)
+
+| Guard | What it does |
+|-------|--------------|
+| **Randomized hidden tests** | A teacher attaches a trusted `reference_solution` + a `generator`. At grade time AutoMark samples **random inputs** (seeded by the student's code, so a submission is reproducible — NFR-02 — but unknowable in advance), runs the reference to get expected output, then runs the student. Hard-coding or lookup-tabling the known samples **cannot pass** these. |
+| **Behavioural overfit cap** | If a submission passes the visible samples but fails the hidden checks (≥80% visible, ≤50% hidden), it's **capped at 45 and flagged** `overfit_to_sample_tests` — catches gaming of *any* form, even with no string literals. |
+| **Hard-coded answer detection** | Embedding two or more expected outputs as string literals → **capped at 40**, flagged `possible_hardcoded_output`. |
+| **Fair output comparison** | Output normalised (unify newlines, strip per-line trailing spaces, drop trailing blank lines) so a correct answer isn't failed for a stray space or CRLF. |
+| **Float / numeric tolerance** | A test can set `compare: "numeric"` + `tolerance`; numbers are compared within tolerance (for maths tasks like areas/averages). |
+| **JUnit tests (Java)** | A test with `kind: "junit"` carries a JUnit 5 test class; AutoMark compiles it against the student's class and runs the JUnit console launcher (FR-23), awarding **proportional marks** for the methods that pass. Needs `lib/junit-platform-console-standalone*.jar`. |
+| **Real Checkstyle (Java, FR-28)** | Java style is scored by actual **Checkstyle** against `grader/checkstyle.xml` (naming, braces, whitespace, unused imports, …), not a hand-rolled check — real `line:col` messages in the feedback. Needs `lib/checkstyle-*.jar`. |
+| **JVM resource limits (Java, FR-25)** | Student Java runs with `-Xmx256m -Xss16m`, so a memory hog dies with OutOfMemoryError instead of exhausting the host. |
+| **Compiler warnings (Java)** | `javac -Xlint:all` surfaces warnings (raw types, unchecked, deprecation, …); they're listed in the result and folded into the style score. |
+| **Per-method JUnit + coverage** | The result shows each JUnit **method** as pass/fail (parsed from the JUnit XML report) plus **JaCoCo line coverage** of the student's class. |
+| **Multi-file submissions** | Several files via `// FILE: Name.java` markers, **or a `.zip` upload** (extracted to the same format); all compiled together, and the class with `main` is run. |
+| **Coverage as a rubric signal** | A rubric requirement can set `coverage_min` (e.g. 80); its verdict comes from the measured **JaCoCo line coverage** (met / partial / not_met). |
+| **Teacher JUnit authoring** | The teacher test editor has an I/O **or JUnit** kind selector — a JUnit test holds a JUnit 5 test class pasted in the UI. |
+| **Compiler-error line highlighting** | When code doesn't compile, the result shows the student's source with the exact offending line(s) highlighted (parsed from the javac / py_compile message). |
+| **Richer feedback** | Names the failing sample tests, reports hidden-check pass rate (without revealing inputs), and lists unmet requirements with their rubric text. |
+
+All verified by a regression suite of **22 adversarial submissions** (incl. lookup-table
+gaming, float tolerance, JUnit partial credit + per-method, Checkstyle, Xlint warnings,
+multi-file, memory-limit OOM):
+
+```bash
+python tests/marking_suite.py
+```
+
 ---
 
 ## How the mark is computed (SRS Figure 6)
@@ -322,7 +350,12 @@ numbers in range — FR-32) and falls back to the behavioural engine on any fail
 | `config.py` | `.env` loader + config accessors |
 | `migrate.py`, `check_db.py` | Apply migrations / check the DB |
 | `seed.py` | Demo accounts, sample assignments, demo submissions |
-| `supabase/migrations/` | `0001_init.sql` (schema), `0002_auth.sql` (accounts) |
+| `tests/marking_suite.py` | 22-case adversarial regression suite for the grader |
+| `tests/hostile_pack.py` | 10 hostile Java programs + containment harness (NFR-03) |
+| `supabase/migrations/` | `0001_init.sql` (schema), `0002_auth.sql` (accounts), `0003_generator.sql` (hidden-test fields) |
+| `lib/` (git-ignored) | JUnit launcher, Checkstyle, and JaCoCo (agent + CLI) jars |
+| `grader/checkstyle.xml` | Checkstyle ruleset used for Java style scoring |
+| `grader/Dockerfile` | Grader sandbox image (JDK 21 + Python, non-root) for the optional Docker sandbox |
 | `web/index.html`, `web/app.js` | Single-page UI |
 | `.env` (git-ignored) | Supabase + LLM + session secrets; `.env.example` is the template |
 | `jdk/` (git-ignored) | Bundled Temurin JDK 21 for Java grading |
@@ -334,9 +367,38 @@ numbers in range — FR-32) and falls back to the behavioural engine on any fail
 The real AutoMark runs untrusted student code in a locked-down **Docker sandbox**
 (no network, 256 MB, 0.5 CPU, read-only FS, dropped capabilities). **This
 prototype does not.** It runs submissions in a subprocess with a wall-clock
-watchdog, 64 KB output cap, an isolated temp folder, and Python isolated mode
-(`-I`). That stops endless loops but is **not** a security boundary — **only grade
-code you trust.** Adding a container sandbox is the main step toward production.
+watchdog, 64 KB output cap, an isolated temp folder, Python isolated mode (`-I`),
+and for Java a 256 MB heap cap. That stops endless loops, fork bombs, memory hogs
+and runaway output, but is **not** a security boundary — **only grade code you
+trust.** Adding a container sandbox is the main step toward production.
+
+A hostile-program pack checks this honestly (SRS NFR-03 / AC-03):
+
+```bash
+python tests/hostile_pack.py
+```
+It runs 10 hostile Java programs and confirms the grader **always returns and
+never crashes**, and that endless loop / fork bomb / memory hog / endless output
+are contained. By default it also documents what the plain subprocess runner does
+**not** block — **network access, host file reads and disk writes**.
+
+### Optional real sandbox (Docker) — closes that gap
+
+A Docker-based sandbox is built in. Build the grader image and switch it on:
+
+```bash
+docker build -t automark-grader grader/      # JDK 21 + Python, non-root
+# then in .env:
+AUTOMARK_SANDBOX=docker
+```
+
+Student programs then run **inside a throwaway container** with
+`--network none --read-only --memory 256m --cpus 0.5 --pids-limit 64 --cap-drop ALL
+--security-opt no-new-privileges` and only the job folder mounted writable — so
+network, host files and resource abuse are actually blocked (SRS FR-25). If the
+Docker daemon isn't reachable, AutoMark logs it and falls back to the subprocess
+runner, so the app always works. The active mode shows at `GET /api/env`
+(`sandbox: docker | subprocess`). Gradle/Maven project builds are not supported.
 
 Other simplifications: the prototype owns auth itself (the full product would use
 Supabase Auth/GoTrue + database RLS for the browser); grading runs synchronously

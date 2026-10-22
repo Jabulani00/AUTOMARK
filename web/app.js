@@ -78,8 +78,7 @@ function enterApp(user){
     $("teacherNav").classList.add("hidden");
     $("studentView").classList.remove("hidden");
     $("teacherView").classList.add("hidden");
-    loadStudentAssignments();
-    loadMySubs();
+    loadStudentAssignments().then(loadMySubs);  // titles must load before history
   }
 }
 
@@ -97,13 +96,26 @@ async function loadBrief(){
   const a = await api.get("/api/assignments/"+id);
   $("stuBrief").textContent = a.brief || "—";
 }
+let ZIP_B64 = null;   // set when a .zip is uploaded (multi-file)
 function loadFile(){
   const f = $("stuFile").files[0]; if(!f) return;
-  const reader = new FileReader();
-  reader.onload = () => { $("stuCode").value = reader.result; };
-  reader.readAsText(f);
+  if(f.name.toLowerCase().endsWith(".zip")){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const bytes = new Uint8Array(reader.result);
+      let bin = ""; for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+      ZIP_B64 = btoa(bin);
+      $("stuCode").value = `[uploaded zip: ${f.name} — extracted and graded as multiple files]`;
+      $("stuCode").readOnly = true;
+    };
+    reader.readAsArrayBuffer(f);
+  } else {
+    const reader = new FileReader();
+    reader.onload = () => { ZIP_B64 = null; $("stuCode").readOnly = false; $("stuCode").value = reader.result; };
+    reader.readAsText(f);
+  }
 }
-function clearCode(){ $("stuCode").value=""; $("stuFile").value=""; }
+function clearCode(){ ZIP_B64=null; $("stuCode").readOnly=false; $("stuCode").value=""; $("stuFile").value=""; }
 
 async function submitCode(){
   $("submitErr").innerHTML = "";
@@ -112,6 +124,7 @@ async function submitCode(){
     assignment_id: $("stuAssignment").value,
     filename: ($("stuFile").files[0]||{}).name || "Submission",
     code: $("stuCode").value,
+    zip_b64: ZIP_B64 || undefined,
   };
   const {ok, data} = await api.send("POST", "/api/submit", body);
   btn.disabled = false; btn.textContent = "Submit for marking →";
@@ -125,6 +138,11 @@ function renderResult(sub){
   $("resultCard").classList.remove("hidden");
   $("resStatus").textContent = sub.status;
   $("resStatus").className = "pill " + sub.status;
+  const oldFlag = document.getElementById("resFlag"); if(oldFlag) oldFlag.remove();
+  if(sub.result && sub.result.flags && sub.result.flags.length){
+    $("resStatus").insertAdjacentHTML("afterend",
+      ' <span class="pill not_met" id="resFlag">⚠ flagged for review</span>');
+  }
   if(sub.status!=="graded"){ $("resMark").textContent="—";
     $("resFeedback").textContent = sub.error || "Could not grade."; return; }
   const r = sub.result, s = r.scores;
@@ -137,14 +155,38 @@ function renderResult(sub){
   bar("barTests", s.test_score); bar("barRubric", s.rubric_score); bar("barStyle", s.style_score);
   $("resFeedback").textContent = r.feedback;
   const g = r.grader;
+  function detailCell(t){
+    let d = `<span class="muted mono">${esc(t.message||'')}</span>`;
+    if(t.methods && t.methods.length){
+      d += `<div style="margin-top:4px">` + t.methods.map(m=>
+        `<span class="pill ${m.passed?'passed':'fail'}" style="margin:1px" title="${esc(m.message||'')}">${esc(m.method)}</span>`).join(" ") + `</div>`;
+    }
+    if(t.coverage!=null){ d += `<div class="muted" style="margin-top:3px">line coverage: ${t.coverage}%</div>`; }
+    if(t.earned!=null && t.earned!==t.marks){ d += `<div class="muted">earned ${t.earned} of ${t.marks} marks</div>`; }
+    return d;
+  }
   $("resTests").innerHTML =
-    `<tr><th>Test</th><th>Result</th><th>Marks</th><th>Message</th></tr>` +
+    `<tr><th>Test</th><th>Result</th><th>Marks</th><th>Detail</th></tr>` +
     (g.tests.map(t=>`<tr><td>${esc(t.name)}</td>
        <td><span class="pill ${t.passed?'passed':'fail'}">${t.passed?'pass':'fail'}</span></td>
-       <td>${t.marks}</td><td class="muted mono">${esc(t.message||'')}</td></tr>`).join("")
+       <td>${t.marks}</td><td>${detailCell(t)}</td></tr>`).join("")
      || `<tr><td class="muted">No tests ran.</td></tr>`);
-  $("compileBox").innerHTML = g.compiled ? "" :
-     `<div class="err">Did not compile:<pre class="code">${esc((g.compile_errors||[]).join("\n"))}</pre></div>`;
+  if(g.warnings && g.warnings.length){
+    $("resTests").innerHTML += `<tr><td colspan="4" class="muted">⚠ ${g.warnings.length} compiler warning(s): ${esc(g.warnings.slice(0,3).join("; "))}</td></tr>`;
+  }
+  if(g.compiled){ $("compileBox").innerHTML = ""; }
+  else {
+    const errLines = new Set(g.error_lines||[]);
+    const src = (sub.code||"").split("\n");
+    const numbered = src.map((ln,i)=>{
+      const n=i+1, bad=errLines.has(n);
+      return `<div class="codeline${bad?' bad':''}"><span class="ln">${n}</span>${esc(ln)||' '}</div>`;
+    }).join("");
+    $("compileBox").innerHTML =
+      `<div class="err" style="margin-top:10px">Did not compile — see highlighted line(s):</div>
+       <div class="codeview">${numbered}</div>
+       <pre class="code">${esc((g.compile_errors||[]).join("\n"))}</pre>`;
+  }
   $("resReqs").innerHTML = r.rubric.requirements.map(q=>`<div class="reqline">
      <span class="pill ${q.verdict}">${q.verdict.replace('_',' ')}</span>
      <div><b>${esc(q.id)}</b> ${esc(q.explanation)}
@@ -218,16 +260,31 @@ function renderRubric(){
 }
 function addRubric(){ TCH.rubric.push({id:"R"+(TCH.rubric.length+1),text:"",marks:0,patterns:[],test_ids:[]}); renderRubric(); }
 function renderTests(){
-  $("testBody").innerHTML = TCH.tests.map((t,i)=>`<tr>
+  $("testBody").innerHTML = TCH.tests.map((t,i)=>{
+    const kind = t.kind || 'io';
+    const kindSel = `<select onchange="TCH.tests[${i}].kind=this.value;renderTests()">
+       <option value="io" ${kind==='io'?'selected':''}>io</option>
+       <option value="junit" ${kind==='junit'?'selected':''}>junit</option></select>`;
+    const body = kind==='junit'
+      ? `<td colspan="2"><textarea style="min-height:90px;white-space:pre" placeholder="import org.junit.jupiter.api.Test;\n...\npublic class XTest { @Test void t(){ assertTrue(...); } }" onchange="TCH.tests[${i}].body=this.value">${esc(t.body||'')}</textarea></td>`
+      : `<td><textarea style="min-height:46px;white-space:pre" onchange="TCH.tests[${i}].stdin=this.value">${esc(t.stdin||'')}</textarea></td>
+         <td><textarea style="min-height:46px;white-space:pre" onchange="TCH.tests[${i}].expected=this.value">${esc(t.expected||'')}</textarea></td>`;
+    return `<tr>
      <td><input value="${esc(t.id||'')}" onchange="TCH.tests[${i}].id=this.value"></td>
      <td><input value="${esc(t.name)}" onchange="TCH.tests[${i}].name=this.value"></td>
-     <td><textarea style="min-height:46px;white-space:pre" onchange="TCH.tests[${i}].stdin=this.value">${esc(t.stdin)}</textarea></td>
-     <td><textarea style="min-height:46px;white-space:pre" onchange="TCH.tests[${i}].expected=this.value">${esc(t.expected)}</textarea></td>
+     <td>${kindSel}</td>
+     ${body}
      <td><input type="number" value="${t.marks}" onchange="TCH.tests[${i}].marks=+this.value"></td>
      <td><label class="muted"><input type="checkbox" style="width:auto" ${t.approved?'checked':''} onchange="TCH.tests[${i}].approved=this.checked"> ok</label></td>
-     <td><button class="ghost sm" onclick="TCH.tests.splice(${i},1);renderTests()">✕</button></td></tr>`).join("");
+     <td><button class="ghost sm" onclick="TCH.tests.splice(${i},1);renderTests()">✕</button></td></tr>`;
+  }).join("");
 }
-function addTest(){ TCH.tests.push({id:"t"+(TCH.tests.length+1),name:"test",kind:"io",stdin:"",expected:"",marks:1,approved:false}); renderTests(); }
+function addTest(kind){
+  const n = TCH.tests.length+1;
+  if(kind==='junit') TCH.tests.push({id:"j"+n,name:"JUnit test",kind:"junit",body:"",marks:10,approved:false});
+  else TCH.tests.push({id:"t"+n,name:"test",kind:"io",stdin:"",expected:"",marks:1,approved:false});
+  renderTests();
+}
 function collect(){
   TCH.title=$("tchTitle").value; TCH.brief=$("tchBrief").value; TCH.language=$("tchLang").value;
   TCH.weights={tests:+$("wgTests").value,rubric:+$("wgRubric").value,style:+$("wgStyle").value};
@@ -260,7 +317,7 @@ async function loadMarks(){
      <td>${esc(s.student)}</td>
      <td><span class="pill ${s.status}">${s.status}</span></td>
      <td>${s.attempts}</td>
-     <td>${s.mark==null?'—':s.mark}${s.overridden?` <span class="muted">(was ${s.original_mark})</span>`:''}</td>
+     <td>${s.mark==null?'—':s.mark}${s.overridden?` <span class="muted">(was ${s.original_mark})</span>`:''}${s.flagged?' <span class="pill not_met" title="Possible gaming / hard-coded answers">⚠ review</span>':''}</td>
      <td class="row">
        <button class="ghost sm" onclick="doOverride('${s.id}')">Override</button>
        <button class="ghost sm" onclick="doRegrade('${s.id}')">Regrade</button>

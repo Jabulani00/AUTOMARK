@@ -10,8 +10,9 @@ AUTOMARK ENV SETUP AND SUPABSE DB.txt
 data/
 contracts_cache/
 
-# --- bundled JDK (large, machine-specific) ---
+# --- bundled JDK + JUnit jar (large, machine-fetchable) ---
 jdk/
+lib/
 
 # --- python ---
 __pycache__/

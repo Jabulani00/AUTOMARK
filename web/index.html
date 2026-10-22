@@ -60,6 +60,12 @@
        padding:9px 12px;border-radius:8px;margin-top:10px;font-size:13px}
   pre.code{background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:10px;
       overflow:auto;font-size:12px;max-height:200px}
+  .codeview{background:#0b1220;border:1px solid var(--line);border-radius:8px;overflow:auto;
+      font-family:ui-monospace,Consolas,monospace;font-size:12px;max-height:240px;margin-top:8px}
+  .codeline{white-space:pre;padding:0 8px;display:flex;gap:10px}
+  .codeline .ln{color:#475569;min-width:24px;text-align:right;user-select:none}
+  .codeline.bad{background:rgba(239,68,68,.18);border-left:3px solid var(--bad)}
+  .codeline.bad .ln{color:#fca5a5}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
   .reqline{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line)}
   .reqline .lines{font-size:11px;color:var(--muted)}
@@ -222,14 +228,18 @@
   </div>
 
   <div class="card">
-    <h2>Test cases <span class="muted">(input / expected output)</span></h2>
+    <h2>Test cases <span class="muted">(I/O or JUnit)</span></h2>
     <table>
-      <thead><tr><th style="width:52px">ID</th><th>Name</th><th>stdin</th><th>Expected stdout</th><th style="width:56px">Marks</th>
-      <th style="width:84px">Approved</th><th style="width:36px"></th></tr></thead>
+      <thead><tr><th style="width:48px">ID</th><th>Name</th><th style="width:70px">Kind</th>
+      <th>stdin / JUnit test class</th><th>Expected stdout</th><th style="width:56px">Marks</th>
+      <th style="width:78px">Approved</th><th style="width:34px"></th></tr></thead>
       <tbody id="testBody"></tbody>
     </table>
-    <button class="ghost sm" onclick="addTest()" style="margin-top:10px">+ Add test</button>
-    <div class="note">Publish needs ≥1 test, every test approved, and rubric totalling 100 (FR-10).</div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost sm" onclick="addTest('io')">+ I/O test</button>
+      <button class="ghost sm" onclick="addTest('junit')">+ JUnit test</button>
+    </div>
+    <div class="note">A JUnit test holds a JUnit 5 test class (e.g. <span class="mono">public class XTest { @Test … }</span>) that calls the student's class. Publish needs ≥1 test, every test approved, and rubric totalling 100 (FR-10).</div>
   </div>
 
   <div class="card">

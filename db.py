@@ -6,6 +6,7 @@ and the tables exist. The Python server is the trusted worker here (SRS: the
 worker uses the service key), so it bypasses RLS.
 """
 
+import http.client
 import json
 import time
 import urllib.error
@@ -14,6 +15,9 @@ import urllib.request
 
 import config
 from store import new_id
+
+_TRANSIENT = (http.client.IncompleteRead, http.client.RemoteDisconnected,
+              ConnectionError, TimeoutError)
 
 
 def _now():
@@ -45,20 +49,25 @@ class SupabaseStore:
             h["Prefer"] = prefer
         return h
 
-    def _request(self, method, table, query="", body=None, prefer=None):
+    def _request(self, method, table, query="", body=None, prefer=None, retries=3):
         url = self.base + table + (("?" + query) if query else "")
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        req = urllib.request.Request(url, data=data, method=method,
-                                     headers=self._headers(prefer))
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                raw = r.read()
-                if not raw:
-                    return None
-                return json.loads(raw.decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            msg = e.read().decode("utf-8", "ignore")
-            raise SupabaseError("%s %s -> %s %s" % (method, table, e.code, msg))
+        last = None
+        for attempt in range(retries):
+            req = urllib.request.Request(url, data=data, method=method,
+                                         headers=self._headers(prefer))
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    raw = r.read()
+                    return json.loads(raw.decode("utf-8")) if raw else None
+            except urllib.error.HTTPError as e:
+                msg = e.read().decode("utf-8", "ignore")
+                raise SupabaseError("%s %s -> %s %s" % (method, table, e.code, msg))
+            except _TRANSIENT as e:
+                last = e
+                time.sleep(0.4 * (attempt + 1))  # transient read; back off and retry
+        raise SupabaseError("%s %s -> transient read failed after %d tries: %s"
+                            % (method, table, retries, last))
 
     def ping(self):
         """Confirm the tables exist (raises on failure)."""
