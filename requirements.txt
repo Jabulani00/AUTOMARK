@@ -1,0 +1,3 @@
+# The AutoMark web app itself uses only the Python standard library.
+# psycopg2 is needed ONLY to apply database migrations with migrate.py.
+psycopg2-binary>=2.9

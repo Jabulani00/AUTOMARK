@@ -9,6 +9,7 @@ AUTOMARK ENV SETUP AND SUPABSE DB.txt
 # --- local data & runtime ---
 data/
 contracts_cache/
+supabase/.temp/
 
 # --- bundled JDK + JUnit jar (large, machine-fetchable) ---
 jdk/
