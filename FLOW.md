@@ -1,36 +1,41 @@
-# AutoMark — flow & navigation guide
+# AutoMark — how to use it (student & lecturer guide)
 
-How to move around the app and do everything as a **Lecturer (teacher)** or a
-**Student**. Diagrams render on GitHub / VS Code preview.
+A simple walkthrough of what you can do in AutoMark and how to get around it,
+whether you're a **lecturer** or a **student**. The pictures (diagrams) below
+show the steps at a glance — they appear as drawings on GitHub or in VS Code.
 
-- App URL: <http://localhost:8000> (start with `python app.py`)
-- Demo logins (password **`password123`**):
+- **Open the app:** <http://localhost:8000> (after someone has started it)
+- **Try it with the demo logins** (password is **`password123`** for all):
   - Lecturer → `teacher@automark.test`
   - Students → `alice@class.test` … `erin@class.test`
 
+In one line: **a student hands in a program, and AutoMark gives it a mark with
+feedback — automatically.** A lecturer sets the work and reviews the results.
+
 ---
 
-## 1. Who does what
+## 1. Everyone starts by signing in
 
-Everyone lands on the **sign-in** screen. Your **role decides which screens you
-see** — the app routes you automatically after login.
+When you open AutoMark you see a **sign-in page**. After you log in, the app
+knows whether you're a **lecturer** or a **student** and shows you the right
+screens — you can't wander into the wrong area by accident.
 
 ```mermaid
 flowchart TD
-    A(["Open http://localhost:8000"]) --> B[Sign-in screen]
-    B -->|email + password| C{Role?}
-    C -->|teacher| T[👩‍🏫 Lecturer area]
-    C -->|student| S[🎓 Student area]
+    A(["Open the app"]) --> B[Sign in with email &amp; password]
+    B --> C{Who are you?}
+    C -->|Lecturer| T[👩‍🏫 Lecturer screens]
+    C -->|Student| S[🎓 Student screens]
 
-    T --> T1[Create &amp; edit assignments]
-    T --> T2[Add rubric + tests, approve, publish]
-    T --> T3[Class marks: override, regrade, export CSV]
-    T --> T4[Analytics dashboard]
+    T --> T1[Set up the work students must do]
+    T --> T2[Add the checks that mark it]
+    T --> T3[Review marks, adjust them, download them]
+    T --> T4[See class progress charts]
 
-    S --> S1[Pick a published assignment]
-    S --> S2[Upload / write / zip a program]
-    S --> S3[Submit &amp; get a mark + feedback]
-    S --> S4[My submissions history]
+    S --> S1[Choose a task]
+    S --> S2[Write or upload a program]
+    S --> S3[Get a mark and feedback]
+    S --> S4[See all your past attempts]
 
     classDef t fill:#1e3a8a,stroke:#3b82f6,color:#fff
     classDef s fill:#065f46,stroke:#10b981,color:#fff
@@ -38,215 +43,216 @@ flowchart TD
     class S,S1,S2,S3,S4 s
 ```
 
-**Sign in / sign up**
+**Signing in / signing up**
 
-- On the landing page, the card has two tabs: **Sign in** and **Create student
-  account**.
-- *Create student account* self-registers a **student** only (lecturer accounts
-  are created by seeding/invite — SRS FR-02).
-- After login the top bar shows your **avatar, name, role** and a **Sign out**
-  button. Students never see the lecturer screens, and vice-versa.
+- The login card has two tabs: **Sign in** and **Create student account**.
+- *Create student account* is for **students** only. Lecturer accounts are set
+  up for you (students can't make themselves a lecturer).
+- Once you're in, the top bar shows your **name, your role, and a Sign-out
+  button**.
 
 ---
 
-## 2. Screen map
+## 2. The two main areas
 
 ```mermaid
 flowchart LR
-    L[Sign-in] --> SV[Student view]
-    L --> TV[Teacher view]
+    L[Sign-in] --> SV[Student area]
+    L --> TV[Lecturer area]
 
-    subgraph SV[🎓 Student view]
+    subgraph SV[🎓 Student area]
       direction TB
-      SA[Pick an assignment] --- SB[Upload or write program]
-      SB --- SR[Result: gauge, breakdown, feedback]
-      SR --- SM[My submissions]
+      SA[Choose a task] --- SB[Write or upload your program]
+      SB --- SR[Your result: score + feedback]
+      SR --- SM[Your past attempts]
     end
 
-    subgraph TV[👩‍🏫 Teacher view]
+    subgraph TV[👩‍🏫 Lecturer area]
       direction TB
-      TN{{"Nav: Assignments & Marks · Analytics"}}
-      TN --- TE[Assignment editor]
-      TE --- TR[Rubric table]
-      TR --- TT[Test cases: I/O or JUnit]
+      TN{{"Two tabs: Assignments & Marks · Analytics"}}
+      TN --- TE[Set up an assignment]
+      TE --- TR[Marking checklist]
+      TR --- TT[Add the tests]
       TT --- TM[Class marks]
-      TN --- TAN[Analytics dashboard]
+      TN --- TAN[Progress charts]
     end
 ```
 
 ---
 
-## 3. Student flow
+## 3. For students — step by step
 
-### Step by step
-
-1. **Sign in** (or *Create student account*).
-2. **Pick an assignment** (left card) — choose from the **Assignment** dropdown;
-   the **brief** appears below it. Only *published* assignments are listed.
-3. **Provide your program** (right card), any one of:
-   - **Write it** — type/paste into the **Code** box, or
-   - **Upload a file** — *Choose File* → a `.py` / `.java` / `.txt`, or
-   - **Upload a `.zip`** of several source files (multi-file projects).
-4. Click **Submit for marking →**.
-5. **Read your result** (appears below): the big **mark gauge**, the **Tests /
-   Rubric / Style** score bars, **Feedback**, the **test breakdown**, and
-   **requirement verdicts**. If your code didn't compile, the offending line is
-   highlighted.
-6. **Resubmit** anytime — just change the code and submit again. Every attempt is
-   kept and listed under **My submissions** (click a row to reopen its result).
+1. **Sign in** (or create a student account).
+2. **Choose a task** on the left. Pick one from the list, and its instructions
+   (the "brief") appear underneath. You only see tasks the lecturer has made
+   available.
+3. **Give in your program** on the right — any one of these:
+   - **Type or paste** your code into the box, or
+   - **Upload a file** (for example a `.py` or `.java` file), or
+   - **Upload a zip file** if your program is made of several files.
+4. Press **Submit for marking →**.
+5. **See your result** just below. You get a **score out of 100** shown in a
+   round dial, three progress bars (see the table further down), plain-language
+   **feedback**, a list of each **test** and whether it passed, and a tick-list
+   of what the task asked for.
+6. **Try again as many times as you like.** Change your code and submit again —
+   every attempt is saved under **"My submissions"**. Click any row there to
+   see that result again.
 
 ```mermaid
 flowchart TD
-    A[Sign in] --> B[Pick an assignment]
-    B --> C[Read the brief]
-    C --> D{Provide program}
-    D -->|type / paste| E[Code box]
-    D -->|upload file| E
-    D -->|upload .zip| E
+    A[Sign in] --> B[Choose a task]
+    B --> C[Read the instructions]
+    C --> D{Give in your program}
+    D -->|type or paste| E[Your code]
+    D -->|upload a file| E
+    D -->|upload a zip| E
     E --> F[[Submit for marking →]]
-    F --> G[Result: mark gauge + score bars]
-    G --> H[Feedback + test breakdown + verdicts]
+    F --> G[Score shown in a round dial]
+    G --> H[Feedback + which tests passed + checklist]
     H --> I{Happy with the mark?}
-    I -->|no| E
-    I -->|yes| J[Done — see My submissions]
+    I -->|not yet| E
+    I -->|yes| J[Done — check My submissions]
 
     style F fill:#6366f1,stroke:#a5b4fc,color:#fff
     style G fill:#065f46,stroke:#10b981,color:#fff
 ```
 
-### What the result shows
+### What your result is telling you
 
-| Element | Meaning |
-|---------|---------|
-| **Mark gauge** | Final mark /100 (green ≥70, amber ≥50, red below). |
-| **Tests / Rubric / Style bars** | The three scores and their weights (default 60/25/15). |
-| **Test breakdown** | Each test pass/fail; JUnit tests show **per-method** pills + **coverage**. |
-| **Compile errors** | Your code with the **failing line highlighted**. |
-| **Requirement verdicts** | Per rubric item: *met / partial / not met*, with line numbers. |
-| **⚠ flagged for review** | Appears if the system suspects gaming (hard-coded answers). |
+| What you see | What it means |
+|--------------|---------------|
+| **The round dial** | Your overall mark out of 100 (green = good, amber = okay, red = low). |
+| **The three bars** | How you did on three things: does it **work** (tests), does it **do what was asked** (checklist), and is it **tidy** (style). |
+| **Test list** | Each check the lecturer set, and whether your program passed it. |
+| **Highlighted line** | If your program had a mistake that stopped it running, the exact line is highlighted so you can fix it. |
+| **Checklist** | For each thing the task asked for: **done**, **partly done**, or **not done**, with the line where you did it. |
+| **⚠ flagged for review** | Appears if it looks like the answers were typed in directly instead of really worked out — the lecturer will take a look. |
 
 ---
 
-## 4. Lecturer (teacher) flow
+## 4. For lecturers — step by step
 
-Use the top-bar switch **Assignments & Marks ⟷ Analytics**.
+Use the two tabs at the top: **Assignments & Marks** and **Analytics**.
 
-### A. Create & publish an assignment
+### A. Create a task and make it available to students
 
 1. Click **+ New assignment**.
-2. Fill in **Title**, choose **Language** (Python / Java), write the **Brief**.
-3. *(Optional)* **Auto-draft rubric & tests** — generates starter rubric lines
-   and a sample test to edit.
-4. **Rubric** table — add requirements (**+ Add requirement**). Each has an
-   **ID, text, Marks, Patterns**, and **Tests that prove it** (list the test IDs
-   whose pass/fail decides the verdict — this is what catches wrong-for-the-task
-   code). **Marks must total 100.**
-5. **Test cases** table — add checks:
-   - **+ I/O test** → give **stdin** and the **expected stdout** (±tolerance for
-     numbers if set).
-   - **+ JUnit test** (Java) → paste a **JUnit 5 test class**.
-   - Tick **Approved** on each test you want used for marking.
-6. Set the **Weights** (Tests / Rubric / Style) — must total 100.
-7. **Save assignment**, then **Publish**.
+2. Enter a **title**, pick the **language** (Python or Java), and write the
+   **instructions** students will read.
+3. *(Optional)* Press **Auto-draft rubric & tests** to get a starter checklist
+   and a sample test you can edit — a quick head start.
+4. Fill in the **marking checklist** ("rubric"). Add each thing the task should
+   do, and how many marks it's worth. **The marks must add up to 100.** For each
+   item you can point to the tests that prove it — so a program that doesn't
+   really do the job can't score for it.
+5. Add the **tests** (the automatic checks):
+   - **+ I/O test** — give an example input and the answer you expect back.
+   - **+ JUnit test** (Java) — paste an automatic Java test.
+   - **Tick "Approved"** on each test you want used for marking.
+6. Set the **weights** — how much "does it work / does what was asked / tidy"
+   each count toward the final mark. These must add up to 100 too.
+7. Press **Save assignment**, then **Publish**.
 
-> **Publish gate (FR-10):** at least one test, **every** test approved, rubric
-> totalling 100, weights totalling 100 — otherwise publish is blocked with a
-> message.
+> **Before you can publish:** there must be at least one test, **every** test
+> must be ticked as approved, and the checklist marks and the weights must each
+> add up to 100. If something's missing, AutoMark tells you what to fix.
 
 ```mermaid
 flowchart TD
-    N[+ New assignment] --> T[Title, Language, Brief]
-    T --> AD[/"Auto-draft rubric & tests (optional)"/]
-    AD --> R[Edit rubric: marks total 100]
+    N[+ New assignment] --> T[Title, language, instructions]
+    T --> AD[/"Auto-draft a starter checklist & tests (optional)"/]
+    AD --> R[Fill the marking checklist - marks total 100]
     T --> R
-    R --> TC[Add tests: I/O and/or JUnit]
-    TC --> AP[Approve each test]
-    AP --> W[Set weights = 100]
-    W --> SV[Save assignment]
-    SV --> PUB{Publish checks pass?}
-    PUB -->|no: fix rubric/tests| R
-    PUB -->|yes| LIVE[📣 Published — students can submit]
+    R --> TC[Add the tests]
+    TC --> AP[Tick each test as Approved]
+    AP --> W[Set the weights - total 100]
+    W --> SV[Save]
+    SV --> PUB{Ready to publish?}
+    PUB -->|something missing| R
+    PUB -->|all good| LIVE[📣 Published — students can now hand in work]
 
     style LIVE fill:#065f46,stroke:#10b981,color:#fff
     style PUB fill:#92400e,stroke:#f59e0b,color:#fff
 ```
 
-### B. Review & manage marks
+### B. Review and manage marks
 
-In **Assignments & Marks**, pick the assignment → the **Class marks** table
-lists every submission.
+Open **Assignments & Marks**, pick the task, and the **Class marks** table lists
+everyone who handed in work. For each one you can:
 
-- **Override** — set a different final mark **with a reason**; the original mark
-  is kept (audit) and the student sees the override.
-- **Regrade** — re-run the grader for a submission.
-- **Export CSV** — download all marks for the assignment.
-- A **⚠ review** tag marks submissions the system flagged as possible gaming.
+- **Override** — set a different mark by hand, with a reason. The original mark
+  is kept, and the student sees your new one.
+- **Regrade** — mark the submission again.
+- **Export CSV** — download all the marks (opens in Excel/Sheets).
+- A **⚠ review** tag shows any work AutoMark thinks might have been faked, so you
+  can check it yourself.
 
-### C. Analytics
+### C. See how the class is doing
 
-Switch to the **Analytics** tab:
+Switch to the **Analytics** tab for a dashboard:
 
-- **Overview KPIs** — assignments, submissions, students, **average mark**,
-  **pass rate**.
-- **Per-assignment cards** — graded count, averages, **grade distribution**
-  (A–F), and the **most-failed requirements** and **most-failed tests**, so you
-  see exactly where the class struggles.
+- **Top numbers** — how many tasks, how many submissions, how many students, the
+  **average mark**, and the **pass rate**.
+- **Per-task charts** — the spread of grades (how many A's, B's, …) and the
+  **things most students got wrong**, so you can see where to focus teaching.
 
 ```mermaid
 flowchart TD
-    P[Published assignment] --> SUB[Students submit]
-    SUB --> CM[Class marks table]
-    CM --> OV[Override with reason]
-    CM --> RG[Regrade]
-    CM --> EX[Export CSV]
-    SUB --> AN[Analytics: averages, pass rate,<br/>distribution, hardest items]
+    P[Published task] --> SUB[Students hand in work]
+    SUB --> CM[Class marks list]
+    CM --> OV[Change a mark by hand with a reason]
+    CM --> RG[Mark again]
+    CM --> EX[Download all marks]
+    SUB --> AN[Charts: averages, pass rate,<br/>grade spread, common mistakes]
 
     style AN fill:#1e3a8a,stroke:#3b82f6,color:#fff
 ```
 
 ---
 
-## 5. Lifecycles (state diagrams)
+## 5. The journey of a task and a submission
 
-**Assignment** — only published assignments reach students:
+A **task** is only seen by students once you publish it:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: + New assignment
-    draft --> draft: edit rubric / tests / weights
-    draft --> published: Publish (all checks pass)
-    published --> [*]
+    [*] --> Draft: you create it
+    Draft --> Draft: edit checklist / tests / weights
+    Draft --> Published: you publish it
+    Published --> [*]
 ```
 
-**Submission** — each student upload moves through these states:
+A **submission** (one student handing in a program) goes through these stages:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: student submits
-    pending --> running: grader picks it up
-    running --> graded: result saved
-    running --> failed: error (shown to student)
-    graded --> graded: teacher override (original kept)
-    failed --> pending: student resubmits
+    [*] --> Waiting: student hands it in
+    Waiting --> Marking: AutoMark starts checking
+    Marking --> Marked: score and feedback ready
+    Marking --> Failed: something went wrong (shown to the student)
+    Marked --> Marked: lecturer changes the mark (original kept)
+    Failed --> Waiting: student tries again
 ```
 
 ---
 
-## 6. What happens when a student clicks Submit
+## 6. What happens the moment a student clicks "Submit"
 
 ```mermaid
 sequenceDiagram
-    participant St as 🎓 Student (browser)
-    participant App as AutoMark server
-    participant Gr as Grading engine
-    St->>App: Submit code (POST /api/submit)
-    App->>App: validate (signed in, ≤100KB, right type)
-    App->>Gr: compile → run approved tests → style → rubric
-    Gr-->>App: scores + feedback (mark computed in code)
-    App-->>St: Result (gauge, breakdown, feedback)
-    Note over St,App: Teacher later sees it in Class marks & Analytics
+    participant St as 🎓 Student
+    participant App as AutoMark
+    participant Gr as The marker
+    St->>App: Hands in the program
+    App->>App: Quick checks (logged in, right file, not too big)
+    App->>Gr: Run it, test it, check it against the checklist
+    Gr-->>App: A score and feedback
+    App-->>St: Shows the result (score dial + feedback)
+    Note over St,App: The lecturer later sees it in Class marks and the charts
 ```
 
-For *how* grading actually works (hidden tests, Checkstyle, JUnit, coverage,
-anti-gaming, the Docker sandbox), see **README.md**. For first-time setup from a
-clone, see **SETUP.md**.
+---
+
+**Want more detail?** `README.md` explains how the marking works behind the
+scenes, and `SETUP.md` explains how to install AutoMark from scratch.
