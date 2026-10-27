@@ -68,6 +68,8 @@ function enterApp(user){
   $("userbox").classList.remove("hidden");
   $("uName").textContent = user.display_name || user.email;
   $("uRole").textContent = "· " + user.role;
+  const nm = (user.display_name || user.email || "?").trim();
+  const av = $("uAvatar"); if(av) av.textContent = (nm[0] || "?").toUpperCase();
   if(user.role==="teacher"){
     $("teacherNav").classList.remove("hidden");
     $("teacherView").classList.remove("hidden");
@@ -133,7 +135,24 @@ async function submitCode(){
   loadMySubs();
 }
 
-function bar(el, v){ $(el).style.width = Math.round(v*100)+"%"; }
+function bar(el, v){ requestAnimationFrame(()=>{ $(el).style.width = Math.round(v*100)+"%"; }); }
+function markColor(v){ return v>=70 ? "#34d399" : v>=50 ? "#fbbf24" : "#f87171"; }
+function animateMark(target){
+  target = Math.max(0, Math.min(100, +target || 0));
+  const el = $("resMark"), fill = $("gaugeFill"), C = 326.726;
+  if(fill){
+    fill.style.stroke = markColor(target);
+    fill.style.strokeDashoffset = C;
+    requestAnimationFrame(()=>{ fill.style.strokeDashoffset = C * (1 - target/100); });
+  }
+  const start = performance.now(), dur = 950;
+  (function step(t){
+    const p = Math.min(1,(t-start)/dur), e = 1-Math.pow(1-p,3);
+    el.textContent = (target*e).toFixed(1);
+    if(p<1) requestAnimationFrame(step);
+    else el.textContent = Number.isInteger(target) ? String(target) : target.toFixed(1);
+  })(start);
+}
 function renderResult(sub){
   $("resultCard").classList.remove("hidden");
   $("resStatus").textContent = sub.status;
@@ -146,7 +165,7 @@ function renderResult(sub){
   if(sub.status!=="graded"){ $("resMark").textContent="—";
     $("resFeedback").textContent = sub.error || "Could not grade."; return; }
   const r = sub.result, s = r.scores;
-  $("resMark").textContent = (sub.override? sub.override.mark : s.final_mark);
+  animateMark(sub.override ? sub.override.mark : s.final_mark);
   $("resOverride").textContent = sub.override
     ? `Teacher override: ${sub.override.mark} (original ${s.final_mark}). Reason: ${sub.override.reason}` : "";
   $("wTests").textContent = `${s.weights.tests}% · score ${(s.test_score*100).toFixed(0)}%`;
